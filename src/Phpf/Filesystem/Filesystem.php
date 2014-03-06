@@ -6,13 +6,13 @@ use Phpf\Util\Path;
 
 class Filesystem {
 	
-	public static $scan_depth = 10;
-	
 	protected $path;
 	
 	protected $groups = array();
 	
 	protected $working_group;
+	
+	protected $scan_depth = 10;
 	
 	protected $scans = array();
 	
@@ -30,50 +30,57 @@ class Filesystem {
 			throw new \LogicException("Filesystem instance with id '$id' already exists.");
 		}
 		
-		$instance = self::instance($id);
+		return self::instance($id)->setPath($dirpath);
+	}
+	
+	/**
+	 * Returns files & directories in a given directory recursively.
+	 * 
+	 * Returned array is flattened, where both keys and values are the 
+	 * full directory/file path.
+	 * 
+	 * @param string $dir Directory to scan.
+	 * @param int $levels Max directory depth level.
+	 * @param array &$glob The glob of flattend paths.
+	 * @return array Flattened assoc. array of filepaths.
+	 */
+	public static function globDeep( $dir, $levels = 10, array &$glob = array(), $level = 1 ){
 		
-		$instance->setPath($dirpath);
+		$dir = Path::normalize($dir);
 		
-		return $instance;
-	}
-	
-	protected function __construct( $id ){
-		$this->id = $id;
-	}
-	
-	public function setPath( $path ){
-		$this->path = Path::normalize($path);
-		return $this;
-	}
-	
-	public function getPath(){
-		return $this->path;
-	}
-	
-	public static function setScanDepth( $depth ){
-		self::$scan_depth = (int) $depth;
+		foreach( glob("$dir/*") as $item ) {
+			
+			if ( is_dir($item) && $level <= $levels ){
+				$level++;
+				self::globDeep($item, $levels, $glob, $level);
+			} else {
+				$glob[ $item ] = $item;
+			}
+		}
+		
+		return $glob;
 	}
 	
 	public function scan( $group = null, $force_rescan = false ){
 		
 		if ( isset($this->working_group) ){
 			$group = $this->working_group;
-		} elseif ( !isset($group) ){
+		} elseif ( ! isset($group) ){
 			throw new \RuntimeException("Must set group via parameter or working group to scan.");
 		}
 		
-		if ( !isset($this->groups[$group]) ){
+		if ( ! isset($this->groups[$group]) ){
 			throw new \RuntimeException("Unknown filesystem group $group.");
 		}
 		
-		if ( isset($this->files[$group]) && !$force_rescan ){
+		if ( isset($this->files[$group]) && ! $force_rescan ){
 			return $this->files[$group];
 		}
 		
 		$scan = array();
 		
-		foreach( $this->groups[$group] as $path){
-			glob_deep($path, self::$scan_depth, $scan);
+		foreach( $this->groups[$group] as $path ){
+			self::globDeep($path, $this->scan_depth, $scan);
 		}
 		
 		return $this->files[$group] = $scan;
@@ -119,6 +126,20 @@ class Filesystem {
 		return $this;
 	}
 	
+	public function setPath( $path ){
+		$this->path = Path::normalize($path);
+		return $this;
+	}
+	
+	public function getPath(){
+		return $this->path;
+	}
+	
+	public function setScanDepth( $depth ){
+		$this->scan_depth = (int) $depth;
+		return $this;
+	}
+	
 	/**
 	 * Set the current working group.
 	 */
@@ -140,6 +161,10 @@ class Filesystem {
 	public function resetWorkingGroup(){
 		unset($this->working_group);
 		return $this;
+	}
+	
+	protected function __construct( $id ){
+		$this->id = $id;
 	}
 	
 }

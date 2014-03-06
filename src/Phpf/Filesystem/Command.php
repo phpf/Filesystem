@@ -45,7 +45,8 @@ class Command {
 	protected function runWindows(){
 		
 		if ( PHP_VERSION >= '5.4' && !extension_loaded('com_dotnet') ){
-			throw new \RuntimeException("You must enable the 'com_dotnet' extension.");
+			dl('php_com_dotnet.dll');
+			#throw new \RuntimeException("You must enable the 'com_dotnet' extension.");
 		}
 		
 		$command = '%comspec% /c '; 
