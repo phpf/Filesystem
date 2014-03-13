@@ -16,21 +16,8 @@ class Filesystem {
 	
 	protected $scans = array();
 	
-	protected static $instances = array();
-	
-	public static function instance( $id ){
-		if ( !isset(self::$instances[$id]) )
-			self::$instances[$id] = new self( $id );
-		return self::$instances[$id];
-	}
-	
-	public static function newInstance( $id, $dirpath ){
-			
-		if ( isset(self::$instances[$id]) ){
-			throw new \LogicException("Filesystem instance with id '$id' already exists.");
-		}
-		
-		return self::instance($id)->setPath($dirpath);
+	public function __construct( $path ){
+		$this->path = Path::normalize($path);
 	}
 	
 	/**
@@ -69,18 +56,18 @@ class Filesystem {
 			throw new \RuntimeException("Must set group via parameter or working group to scan.");
 		}
 		
-		if ( ! isset($this->groups[$group]) ){
-			throw new \RuntimeException("Unknown filesystem group $group.");
-		}
-		
 		if ( isset($this->files[$group]) && ! $force_rescan ){
 			return $this->files[$group];
 		}
 		
+		if ( ! isset($this->groups[$group]) ){
+			throw new \RuntimeException("Unknown filesystem group $group.");
+		}
+		
 		$scan = array();
 		
-		foreach( $this->groups[$group] as $path ){
-			self::globDeep($path, $this->scan_depth, $scan);
+		foreach( $this->groups[$group] as $path => $depth ){
+			self::globDeep($path, $depth, $scan);
 		}
 		
 		return $this->files[$group] = $scan;
@@ -105,7 +92,7 @@ class Filesystem {
 		return null;
 	}
 	
-	public function add( $path, $group = null ){
+	public function add( $path, $group = null, $depth = 5 ){
 		
 		if ( isset($this->working_group) ){
 			$group = $this->working_group;
@@ -121,7 +108,7 @@ class Filesystem {
 			$this->groups[$group] = array();
 		}
 		
-		$this->groups[$group][$path] = $path;
+		$this->groups[$group][$path] = $depth;
 		
 		return $this;
 	}
@@ -161,10 +148,6 @@ class Filesystem {
 	public function resetWorkingGroup(){
 		unset($this->working_group);
 		return $this;
-	}
-	
-	protected function __construct( $id ){
-		$this->id = $id;
 	}
 	
 }
